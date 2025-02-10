@@ -68,7 +68,7 @@ def dns_response(data):
     qtype = request.q.qtype
     qt = QTYPE[qtype]
 
-    if qn == D and qt in ["CNAME", "AAAA"]:
+    if qn == D and qt in ["CNAME", "AAAA", "A"]:
         reply.add_answer(RR(rname=qname, rtype=QTYPE.CNAME, rclass=1, ttl=TTL, rdata=CNAME(INFOPAGE)))
 
     if qn in [RD, D] and qt in ["NS"]:
@@ -103,7 +103,7 @@ def dns_response(data):
         except:
             return reply.pack()
         hashedid = (int(queryaddress) - int(IP))>>8
-        hashhex = format(hashedid, 'x')
+        hashhex = format(hashedid, 'x').zfill(18)
         rownum = int(queryaddress) & 0xff
         if hashhex in data_meta:
             ptrdata = None
