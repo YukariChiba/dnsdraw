@@ -20,13 +20,17 @@ def create_file(fname, contents):
     try:
         fname_encoded = idna.encode(fname).decode('utf-8')
     except Exception as e:
-        if str(e) != "Label too long":
+        if str(e) == "Label too long":
+            print("warning: skip too loong title: " + fname)
+            return None, None
+        if str(e) == "Label must be in Normalization Form C":
+            print(str(e))
+            print("warning: title does not in NFC: " + fname)
+            return None, None
+        else:
             print(str(e))
             print("error: can not encode: " + fname)
             exit(2)
-        else:
-            print("warning: skip too loong title: " + fname)
-            return None, None
     hash = hashlib.shake_256(fname_encoded.encode('utf-8')).hexdigest(9)
     if os.path.isfile('data/' + hash + '.txt'):
         print("warning: hash collision, skip : " + fname)
