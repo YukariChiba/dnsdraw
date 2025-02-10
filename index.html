@@ -225,7 +225,7 @@
                                             <div>
                                                 <el-tag
                                                     class="preview-tag"
-                                                    @click="showPreview(item.hash)"
+                                                    @click="showPreview(item.hash, item.data.title)"
                                                     >Preview</el-tag
                                                 >
                                                 <el-tag type="info" size="mini"
@@ -441,7 +441,7 @@
                         });
                     };
 
-                    const showPreview = async (hash) => {
+                    const showPreview = async (hash, title) => {
                         try {
                             const response = await fetch(`./data/${hash}.txt`);
                             if (!response.ok) {
