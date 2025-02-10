@@ -40,6 +40,7 @@ MAXTTL = 255
 
 D = DomainName("draw.strexp.net.")
 NSNAME = "draw.ns.strexp.net"
+INFOPAGE = "yukarichiba.github.io"
 RD = DomainName("f.7.b.0.7.0.1.b.e.0.a.2.ip6.arpa.")
 TTL = 60 * 5
 IP = ipaddress.IPv6Address("2a0e:b107:b7f::")
@@ -67,8 +68,11 @@ def dns_response(data):
     qtype = request.q.qtype
     qt = QTYPE[qtype]
 
+    if qn == D and qt in ["CNAME", "AAAA"]:
+        reply.add_answer(RR(rname=qname, rtype=QTYPE.CNAME, rclass=1, ttl=TTL, rdata=CNAME(INFOPAGE)))
+
     if qn in [RD, D] and qt in ["NS"]:
-        reply.add_answer(RR(rname=qn, rtype=QTYPE.NS, rclass=1, ttl=TTL, rdata=ns_record)) 
+        reply.add_answer(RR(rname=qn, rtype=QTYPE.NS, rclass=1, ttl=TTL, rdata=ns_record))
 
     if qn in [RD, D] and qt in ["SOA"]:
         reply.add_answer(RR(rname=qn, rtype=QTYPE.SOA, rclass=1, ttl=TTL, rdata=soa_record))
@@ -82,13 +86,9 @@ def dns_response(data):
             hashedid = query
         else:
             query = qn.removesuffix('.' + D)
-            if query.startswith('xn--'):
-                query = query.encode().decode('idna')
-            if '.' in query:
-                return reply.pack()
             hashedid = hashlib.shake_256(query.encode('UTF-8')).hexdigest(9)
         if hashedid in data_meta:
-            resolvedIP = IP + (int(hashedid, 16)<<8) + data_meta[hashedid]["lines"]
+            resolvedIP = IP + (int(hashedid, 16)<<8) + data_meta[hashedid]["lines"] + 1
             reply.add_answer(RR(rname=qname, rtype=QTYPE.AAAA, rclass=1, ttl=TTL, rdata=AAAA(str(resolvedIP))))
         return reply.pack()
 
@@ -107,11 +107,11 @@ def dns_response(data):
         rownum = int(queryaddress) & 0xff
         if hashhex in data_meta:
             ptrdata = None
-            if rownum == 0:
-                ptrdata = data_meta[hashhex]["filename"].removesuffix('.txt')
+            if rownum == 0 or rownum == data_meta[hashhex]["lines"] + 1:
+                ptrdata = data_meta[hashhex]["title"]
             else:
                 try:
-                    with open('data/' + data_meta[hashhex]["filename"]) as f:
+                    with open('data/' + data_meta[hashhex]["title"]) as f:
                         for i, line in enumerate(f):
                             if i == rownum - 1:
                                 ptrdata = line.removesuffix('\n')

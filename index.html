@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>draw.strexp.net</title>
+
+        <!-- Vue.js CDN -->
+        <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+        <!-- Element Plus CDN -->
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/element-plus"></script>
+        <!-- clipboard.js CDN -->
+        <script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+
+        <style>
+            body {
+                margin: 0;
+            }
+
+            .navbar {
+                background-color: #f0f2f5;
+                padding: 10px 20px;
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #ddd;
+            }
+
+            .navbar-title {
+                font-size: 1.2em;
+                font-weight: bold;
+                margin-right: 16px; /* Spacing between title and count */
+            }
+
+            .el-card {
+                width: 100%;
+                box-sizing: border-box;
+                margin-bottom: 20px;
+            }
+
+            .list-container {
+                height: calc(
+                    100vh - 60px - 60px - 48px
+                ); /* Adjusted for search bar and preset tags height */
+                overflow-y: auto;
+                position: relative;
+                width: 100%;
+            }
+
+            .card-wrapper {
+                max-width: 900px;
+                margin: 0 auto;
+                width: 100%;
+            }
+
+            .list-item-placeholder {
+                position: absolute;
+                width: 100%;
+            }
+
+            .card-header-content {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+            }
+
+            .preset-tags-wrapper {
+                display: flex;
+                justify-content: center; /* Center the tags */
+                width: 100%;
+                padding: 16px 0;
+            }
+            .preset-tags {
+                display: flex;
+                justify-content: center; /* Center the tags horizontally */
+                align-items: center;
+                max-width: 900px;
+                width: 100%;
+            }
+
+            .preset-tag {
+                margin: 0 8px; /* Spacing between tags */
+                cursor: pointer; /* Indicate clickable */
+            }
+
+            .search-bar-wrapper {
+                display: flex;
+                justify-content: center;
+                width: 100%;
+                padding: 0 0 16px 0; /* Padding only at the bottom */
+            }
+
+            .search-bar {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                max-width: 900px;
+            }
+
+            .search-input {
+                flex-grow: 1;
+                margin-right: 8px;
+            }
+
+            pre {
+                margin: 0;
+                padding: 4px 8px;
+                background-color: #f5f7fa;
+                border: 1px solid #e1e4e8;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 12px;
+                overflow: auto;
+                flex-grow: 1;
+            }
+            .copy-btn {
+                margin-left: 8px;
+            }
+
+            .main-content {
+                padding-left: 5px;
+                padding-right: 5px;
+            }
+
+            /* Back to Top Button Styles */
+            .back-to-top {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 999; /* Ensure it's above other content */
+                display: none; /* Initially hidden */
+            }
+            .back-to-top.show {
+                display: block;
+            }
+            .preview-tag {
+                margin-right: 8px;
+                cursor: pointer;
+            }
+            .preview-dialog-content {
+                padding: 20px;
+                max-height: 600px; /* Adjust as needed */
+                overflow-y: auto;
+            }
+
+            .preview-dialog-content pre {
+                white-space: pre-wrap; /*  Handle long lines and wrap them */
+                word-break: break-word; /* Break words if they are too long */
+                font-size: 14px; /*  Adjust as needed */
+                line-height: 1.5; /* Improve readability */
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="app">
+            <div class="navbar">
+                <span class="navbar-title">draw.strexp.net</span>
+                <el-tag class="navbar-items-count" type="info" size="medium"
+                    >{{ items.length }} items</el-tag
+                >
+                <div>
+                    <!-- Navbar content (if any) -->
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="preset-tags-wrapper">
+                    <div class="preset-tags">
+                        <el-tag
+                            class="preset-tag"
+                            @click="setSearchQuery('楚辞')"
+                            >楚辞</el-tag
+                        >
+                        <el-tag
+                            class="preset-tag"
+                            @click="setSearchQuery('御定全唐詩')"
+                            >御定全唐詩</el-tag
+                        >
+                        <el-tag
+                            class="preset-tag"
+                            @click="setSearchQuery('诗经')"
+                            >诗经</el-tag
+                        >
+                    </div>
+                </div>
+
+                <div class="search-bar-wrapper">
+                    <div class="search-bar">
+                        <el-input
+                            v-model="searchQuery"
+                            placeholder="Search by title"
+                            class="search-input"
+                            size="large"
+                        ></el-input>
+                        <el-button
+                            type="primary"
+                            @click="handleSearch"
+                            size="large"
+                            >Search</el-button
+                        >
+                    </div>
+                </div>
+
+                <div
+                    class="list-container"
+                    ref="scrollContainer"
+                    @scroll="handleScroll"
+                >
+                    <div :style="{ height: totalHeight + 'px' }">
+                        <div
+                            v-for="(item, index) in visibleItems"
+                            :key="item.hash"
+                            class="list-item-placeholder"
+                            :style="{ top: item.top + 'px', height: item.height + 'px' }"
+                        >
+                            <div class="card-wrapper">
+                                <el-card class="el-card" shadow="hover">
+                                    <template #header>
+                                        <div class="card-header-content">
+                                            <span>{{ item.data.title }}</span>
+                                            <div>
+                                                <el-tag
+                                                    class="preview-tag"
+                                                    @click="showPreview(item.data.title)"
+                                                    >Preview</el-tag
+                                                >
+                                                <el-tag type="info" size="mini"
+                                                    >{{ item.data.lines }}
+                                                    lines</el-tag
+                                                >
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <div>
+                                        <!-- Hash Section -->
+                                        <div
+                                            style="
+                                                display: flex;
+                                                align-items: center;
+                                                margin-bottom: 8px;
+                                            "
+                                        >
+                                            <pre>
+{{ item.hash }}.hash.draw.strexp.net</pre
+                                            >
+                                            <el-button
+                                                type="primary"
+                                                size="mini"
+                                                class="copy-btn"
+                                                :data-clipboard-text="item.hash + '.hash.draw.strexp.net'"
+                                                >Copy as Hash Format</el-button
+                                            >
+                                        </div>
+
+                                        <!-- Title Section -->
+                                        <div
+                                            style="
+                                                display: flex;
+                                                align-items: center;
+                                            "
+                                        >
+                                            <pre>
+{{ item.data.title }}.draw.strexp.net</pre
+                                            >
+                                            <el-button
+                                                type="primary"
+                                                size="mini"
+                                                class="copy-btn"
+                                                :data-clipboard-text="item.data.title + '.draw.strexp.net'"
+                                                >Copy as Title Format</el-button
+                                            >
+                                        </div>
+                                    </div>
+                                </el-card>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Back to Top Button -->
+            <el-button
+                type="primary"
+                circle
+                class="back-to-top"
+                :class="{ 'show': showBackToTop }"
+                @click="scrollToTop"
+            >
+                ↑
+            </el-button>
+
+            <!-- Preview Dialog -->
+            <el-dialog
+                v-model="showPreviewDialog"
+                :title="previewTitle"
+                width="80%"
+                :before-close="closePreview"
+            >
+                <div class="preview-dialog-content">
+                    <pre>{{ previewContent }}</pre>
+                </div>
+                <template #footer>
+                    <span class="dialog-footer">
+                        <el-button @click="closePreview">Close</el-button>
+                    </span>
+                </template>
+            </el-dialog>
+
+            <el-dialog v-model="showErrorDialog" title="Error">
+                <span>{{ errorMessage }}</span>
+            </el-dialog>
+        </div>
+
+        <script>
+            const { createApp, ref, onMounted, computed } = Vue;
+            const { ElMessage, ElDialog, ElTag, ElButton, ElCard, ElInput } =
+                ElementPlus;
+
+            createApp({
+                setup() {
+                    const jsonData = ref({});
+                    const visibleItems = ref([]);
+                    const itemHeight = ref(180);
+                    const bufferSize = ref(10);
+                    const startIndex = ref(0);
+                    const endIndex = ref(0);
+                    const totalHeight = ref(0);
+                    const showErrorDialog = ref(false);
+                    const errorMessage = ref("");
+                    const scrollContainer = ref(null);
+                    const searchQuery = ref("");
+                    const showBackToTop = ref(false);
+                    const showPreviewDialog = ref(false);
+                    const previewContent = ref("");
+                    const previewTitle = ref("");
+
+                    const filteredItems = computed(() => {
+                        if (!searchQuery.value) {
+                            return items.value;
+                        }
+                        const query = searchQuery.value.toLowerCase();
+                        return items.value.filter((item) =>
+                            item.data.title.toLowerCase().includes(query),
+                        );
+                    });
+
+                    const items = computed(() => {
+                        const itemsArray = [];
+                        for (const hash in jsonData.value) {
+                            itemsArray.push({
+                                hash: hash,
+                                data: jsonData.value[hash],
+                            });
+                        }
+                        return itemsArray;
+                    });
+
+                    const clipboard = new ClipboardJS(".copy-btn");
+
+                    clipboard.on("success", (e) => {
+                        ElMessage({
+                            message: "Copied to clipboard!",
+                            type: "success",
+                        });
+                        e.clearSelection();
+                    });
+
+                    clipboard.on("error", (e) => {
+                        ElMessage.error("Failed to copy!");
+                        console.error("Action:", e.action);
+                        console.error("Trigger:", e.trigger);
+                    });
+
+                    const fetchData = async () => {
+                        try {
+                            const response = await fetch("data.json");
+                            if (!response.ok) {
+                                throw new Error(
+                                    `HTTP error! status: ${response.status}`,
+                                );
+                            }
+                            jsonData.value = await response.json();
+                            handleSearch(); // Initial search
+                        } catch (error) {
+                            errorMessage.value = `Failed to fetch data: ${error.message}`;
+                            showErrorDialog.value = true;
+                            console.error("Error fetching data:", error);
+                        }
+                    };
+
+                    const handleSearch = () => {
+                        totalHeight.value =
+                            filteredItems.value.length * itemHeight.value;
+                        handleScroll();
+                    };
+
+                    const handleScroll = () => {
+                        if (!scrollContainer.value) return;
+                        const scrollTop = scrollContainer.value.scrollTop;
+
+                        // Show/hide back-to-top button
+                        showBackToTop.value = scrollTop > 300; // Show after scrolling 300px
+
+                        startIndex.value = Math.max(
+                            0,
+                            Math.floor(scrollTop / itemHeight.value) -
+                                bufferSize.value,
+                        );
+                        endIndex.value = Math.min(
+                            filteredItems.value.length,
+                            Math.ceil(
+                                (scrollTop +
+                                    scrollContainer.value.clientHeight) /
+                                    itemHeight.value,
+                            ) + bufferSize.value,
+                        );
+                        visibleItems.value = filteredItems.value
+                            .slice(startIndex.value, endIndex.value)
+                            .map((item, index) => ({
+                                ...item,
+                                top:
+                                    (startIndex.value + index) *
+                                    itemHeight.value,
+                                height: itemHeight.value,
+                            }));
+                    };
+
+                    const setSearchQuery = (query) => {
+                        searchQuery.value = query;
+                        handleSearch(); // Trigger search when a preset tag is clicked
+                    };
+
+                    const scrollToTop = () => {
+                        scrollContainer.value.scrollTo({
+                            top: 0,
+                            behavior: "smooth",
+                        });
+                    };
+
+                    const showPreview = async (title) => {
+                        try {
+                            const response = await fetch(`./data/${title}.txt`);
+                            if (!response.ok) {
+                                throw new Error(
+                                    `HTTP error! status: ${response.status}`,
+                                );
+                            }
+                            previewContent.value = await response.text();
+                            previewTitle.value = title; // Set the title
+                            showPreviewDialog.value = true; // Show the dialog
+                        } catch (error) {
+                            ElMessage.error(
+                                `Failed to load preview: ${error.message}`,
+                            );
+                            console.error("Error fetching preview:", error);
+                        }
+                    };
+
+                    const closePreview = () => {
+                        showPreviewDialog.value = false;
+                        previewContent.value = ""; // Clear content when closing
+                    };
+
+                    onMounted(() => {
+                        fetchData();
+                        scrollContainer.value =
+                            document.querySelector(".list-container");
+                    });
+
+                    return {
+                        jsonData,
+                        visibleItems,
+                        itemHeight,
+                        bufferSize,
+                        startIndex,
+                        endIndex,
+                        totalHeight,
+                        showErrorDialog,
+                        errorMessage,
+                        scrollContainer,
+                        items,
+                        filteredItems,
+                        fetchData,
+                        handleScroll,
+                        searchQuery,
+                        handleSearch,
+                        setSearchQuery,
+                        showBackToTop,
+                        scrollToTop,
+                        showPreviewDialog,
+                        previewContent,
+                        showPreview,
+                        previewTitle,
+                        closePreview,
+                    };
+                },
+                components: {
+                    ElDialog,
+                    ElTag,
+                    ElButton,
+                    ElCard,
+                    ElInput,
+                },
+            })
+                .use(ElementPlus)
+                .mount("#app");
+        </script>
+    </body>
+</html>

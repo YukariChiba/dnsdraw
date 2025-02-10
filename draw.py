@@ -1,6 +1,6 @@
 import sys
 from netfilterqueue import NetfilterQueue
-from scapy.all import IPv6, ICMPv6TimeExceeded, send
+from scapy.all import IPv6, ICMPv6TimeExceeded
 from scapy.sendrecv import __gen_send  # `send` is fucking slow!
 from scapy.config import conf
 from ipaddress import IPv6Address
@@ -18,19 +18,14 @@ def handle(inpkt):
     dstaddr = IPv6Address(pkt.dst)
     group = (int(dstaddr)-int(baseaddr))>>8
     set_len = (int(dstaddr) & 0xff)
-    max_len = max(set_len, MAX_LEN)
     hlim = pkt.hlim
-    if hlim < max_len:
+    if hlim < MAX_LEN and hlim - 1 <= set_len:
         inpkt.drop()
         sendsrc = baseaddr + (group<<8) + hlim - 1
         tosend = IPv6(src=str(sendsrc), dst=pkt.src) / ICMPv6TimeExceeded() / pkt
         __gen_send(socket, tosend)
     else:
         inpkt.drop()
-        sendsrc = dstaddr
-        tosend = IPv6(src=str(sendsrc), dst=pkt.src) / ICMPv6TimeExceeded() / pkt
-        __gen_send(socket, tosend)
-
 
 if __name__ == '__main__':
     queue = 1
@@ -46,4 +41,3 @@ if __name__ == '__main__':
         nfqueue.run()
     except KeyboardInterrupt:
         pass
-
