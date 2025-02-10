@@ -225,7 +225,7 @@
                                             <div>
                                                 <el-tag
                                                     class="preview-tag"
-                                                    @click="showPreview(item.data.title)"
+                                                    @click="showPreview(item.hash)"
                                                     >Preview</el-tag
                                                 >
                                                 <el-tag type="info" size="mini"
@@ -441,9 +441,9 @@
                         });
                     };
 
-                    const showPreview = async (title) => {
+                    const showPreview = async (hash) => {
                         try {
-                            const response = await fetch(`./data/${title}.txt`);
+                            const response = await fetch(`./data/${hash}.txt`);
                             if (!response.ok) {
                                 throw new Error(
                                     `HTTP error! status: ${response.status}`,

@@ -111,7 +111,7 @@ def dns_response(data):
                 ptrdata = data_meta[hashhex]["title"]
             else:
                 try:
-                    with open('data/' + data_meta[hashhex]["title"]) as f:
+                    with open('data/' + hashhex + ".txt") as f:
                         for i, line in enumerate(f):
                             if i == rownum - 1:
                                 ptrdata = line.removesuffix('\n')
